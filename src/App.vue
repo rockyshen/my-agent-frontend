@@ -17,9 +17,8 @@
           @click="select(ag)"
           :style="{
             display: 'flex', alignItems: 'center', gap: '12px', padding: '12px',
-            borderRadius: '12px', cursor: ag.available ? 'pointer' : 'default',
-            background: selected === ag.id ? 'rgba(138,111,69,0.12)' : 'transparent',
-            opacity: ag.available ? 1 : 0.55
+            borderRadius: '12px', cursor: 'pointer',
+            background: selected === ag.id ? 'rgba(138,111,69,0.12)' : 'transparent'
           }"
         >
           <div :style="{
@@ -33,7 +32,6 @@
             <div :style="{ fontSize: '14px', fontWeight: selected === ag.id ? 700 : 600, color: '#1d1d1f', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }">{{ ag.name }}</div>
             <div style="font-size:12px;color:#6e6e73;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ ag.desc }}</div>
           </div>
-          <div v-if="!ag.available" style="flex-shrink:0;font-size:11px;color:#a3a3a8;background:rgba(0,0,0,0.05);padding:3px 8px;border-radius:980px;">即将上线</div>
         </div>
       </div>
     </div>
@@ -57,13 +55,10 @@ import InterviewAgent from './components/InterviewAgent.vue'
 const selected = ref(null)
 
 const agents = [
-  { id: 'interview', name: '面试模拟 Agent', desc: 'JD 分析 · 简历匹配 · 模拟面试', available: true },
-  { id: 'coding', name: '代码评审 Agent', desc: '代码质量与最佳实践建议', available: false },
-  { id: 'career', name: '职业规划 Agent', desc: '成长路径与技能建议', available: false }
+  { id: 'interview', name: '面试模拟 Agent', desc: 'JD 分析 · 简历匹配 · 模拟面试' }
 ]
 
 function select(ag) {
-  if (!ag.available) return
   selected.value = ag.id
 }
 </script>

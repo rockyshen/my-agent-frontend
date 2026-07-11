@@ -17,5 +17,5 @@ npm run dev
 - `src/App.vue` — 整体左右布局、Agent 列表与选中态
 - `src/components/InterviewAgent.vue` — 面试模拟 Agent 对话界面，完整实现 JD/简历提交、
   分阶段进度、逐题问答与评分、最终评估报告渲染
-- 新增 Agent：在 `App.vue` 的 `agents` 列表中新增一项（`available: true`），并新建对应组件，
+- 新增 Agent：在 `App.vue` 的 `agents` 列表中新增一项，并新建对应组件，
   在右侧面板按 `selected` 值挂载即可。
