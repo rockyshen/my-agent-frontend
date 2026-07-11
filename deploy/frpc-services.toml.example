@@ -1,0 +1,9 @@
+# 追加到树莓派 /etc/frp/frpc.toml 后执行: sudo systemctl restart frpc
+# 腾讯云防火墙 + 宝塔放行 6086
+
+[[proxies]]
+name = "my-agent-frontend"
+type = "tcp"
+localIP = "127.0.0.1"
+localPort = 8086
+remotePort = 6086
