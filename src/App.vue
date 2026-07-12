@@ -43,10 +43,11 @@
         :title="activeAgent.title"
         :default-ws-url="activeAgent.wsUrl"
       />
-      <PlaygroundPanel
-        v-else-if="activeAgent?.component === 'playground'"
+      <MyAgent
+        v-else-if="activeAgent?.component === 'myagent'"
         :key="activeAgent.id"
-        :default-api-base="activeAgent.apiBaseUrl"
+        :title="activeAgent.title"
+        :default-ws-url="activeAgent.wsUrl"
       />
       <div v-else style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;">
         <div style="width:48px;height:48px;border-radius:50%;border:1px solid rgba(0,0,0,0.1);display:flex;align-items:center;justify-content:center;font-size:20px;color:#8a6f45;">◎</div>
@@ -61,7 +62,7 @@
 <script setup>
 import { ref, computed } from 'vue'
 import InterviewAgent from './components/InterviewAgent.vue'
-import PlaygroundPanel from './components/PlaygroundPanel.vue'
+import MyAgent from './components/MyAgent.vue'
 
 const selected = ref(null)
 
@@ -76,11 +77,11 @@ const agents = [
   },
   {
     id: 'playground',
-    name: 'Playground 实验',
-    title: 'SpringAI Playground',
-    desc: 'Email Agent · Graph 人机协同',
-    component: 'playground',
-    apiBaseUrl: import.meta.env.VITE_PLAYGROUND_HTTP_URL || 'http://localhost:8087'
+    name: 'MyAgent',
+    title: 'MyAgent · 天气助手',
+    desc: 'ReactAgent · WebSocket 对话',
+    component: 'myagent',
+    wsUrl: import.meta.env.VITE_PLAYGROUND_WS_URL || 'ws://localhost:8087'
   }
 ]
 
