@@ -46,7 +46,7 @@
       <PlaygroundPanel
         v-else-if="activeAgent?.component === 'playground'"
         :key="activeAgent.id"
-        :default-ws-url="activeAgent.wsUrl"
+        :default-api-base="activeAgent.apiBaseUrl"
       />
       <div v-else style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;">
         <div style="width:48px;height:48px;border-radius:50%;border:1px solid rgba(0,0,0,0.1);display:flex;align-items:center;justify-content:center;font-size:20px;color:#8a6f45;">◎</div>
@@ -78,9 +78,9 @@ const agents = [
     id: 'playground',
     name: 'Playground 实验',
     title: 'SpringAI Playground',
-    desc: 'Graph 编排 · RAG · 事件调试',
+    desc: 'Email Agent · Graph 人机协同',
     component: 'playground',
-    wsUrl: import.meta.env.VITE_PLAYGROUND_WS_URL || 'ws://localhost:8087'
+    apiBaseUrl: import.meta.env.VITE_PLAYGROUND_HTTP_URL || 'http://localhost:8087'
   }
 ]
 

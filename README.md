@@ -11,7 +11,7 @@ npm run dev
 
 侧栏两个 Agent，界面与交互独立：
 - **面试模拟 Agent** — 面向用户的沉浸式面试体验（interview-agent · 6085）
-- **Playground 实验** — 开发者实验台：Graph 流水线、题库上传、WebSocket 事件日志（SpringAIAlibaba-playground · 6087）
+- **Playground 实验** — Email Agent Graph：start → human_review → resume（SpringAIAlibaba-playground master · 6087）
 
 环境变量见 `.env.development` / `.env.production`，也可在界面高级设置里修改。
 
