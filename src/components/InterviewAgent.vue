@@ -4,7 +4,7 @@
     <div style="flex-shrink:0;display:flex;align-items:center;justify-content:space-between;padding:0 40px;height:64px;border-bottom:1px solid rgba(0,0,0,0.08);background:#faf8f4;">
       <div style="display:flex;align-items:center;gap:10px;">
         <div style="width:8px;height:8px;border-radius:50%;background:#8a6f45;"></div>
-        <span style="font-size:15px;font-weight:600;letter-spacing:0.01em;">AI 面试官</span>
+        <span style="font-size:15px;font-weight:600;letter-spacing:0.01em;">{{ title }}</span>
       </div>
       <div v-if="stage === 'live'" style="display:flex;align-items:center;gap:2px;">
         <template v-for="(st, i) in stepperItems" :key="i">
@@ -139,11 +139,16 @@
 <script setup>
 import { ref, computed, watch, nextTick, onBeforeUnmount } from 'vue'
 
+const props = defineProps({
+  title: { type: String, default: 'AI 面试官' },
+  defaultWsUrl: { type: String, default: '' }
+})
+
 const stage = ref('setup') // setup | connecting | live | report | ended
 const jd = ref('')
 const resume = ref('')
 const userId = ref('web-' + Math.random().toString(36).slice(2, 8))
-const wsUrl = ref(import.meta.env.VITE_WS_URL || 'ws://localhost:8085')
+const wsUrl = ref(props.defaultWsUrl || import.meta.env.VITE_WS_URL || 'ws://localhost:8085')
 const showAdvanced = ref(false)
 const connectError = ref('')
 const messages = ref([])

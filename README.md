@@ -9,8 +9,11 @@ npm install
 npm run dev
 ```
 
-默认对接后端 `ws://localhost:8085`（开发）或 `.env.production` 中的 `VITE_WS_URL`（生产构建），
-可在界面高级设置里修改地址与 userId。
+侧栏两个 Agent：
+- **面试模拟 Agent** → 稳定版 `interview-agent`（生产 `ws://118.25.46.207:6085`）
+- **Playground 实验** → `SpringAIAlibaba-playground`（生产 `ws://118.25.46.207:6087`）
+
+环境变量见 `.env.development` / `.env.production`，也可在界面高级设置里修改。
 
 ## 结构
 

@@ -37,7 +37,12 @@
     </div>
 
     <div style="flex:1;height:100%;overflow:hidden;display:flex;flex-direction:column;">
-      <InterviewAgent v-if="selected === 'interview'" />
+      <InterviewAgent
+        v-if="activeAgent"
+        :key="activeAgent.id"
+        :title="activeAgent.title"
+        :default-ws-url="activeAgent.wsUrl"
+      />
       <div v-else style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;">
         <div style="width:48px;height:48px;border-radius:50%;border:1px solid rgba(0,0,0,0.1);display:flex;align-items:center;justify-content:center;font-size:20px;color:#8a6f45;">◎</div>
         <span style="font-size:17px;font-weight:600;">选择左侧的 Agent 开始对话</span>
@@ -49,14 +54,29 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
 import InterviewAgent from './components/InterviewAgent.vue'
 
 const selected = ref(null)
 
 const agents = [
-  { id: 'interview', name: '面试模拟 Agent', desc: 'JD 分析 · 简历匹配 · 模拟面试' }
+  {
+    id: 'interview',
+    name: '面试模拟 Agent',
+    title: 'AI 面试官',
+    desc: '稳定版 · interview-agent',
+    wsUrl: import.meta.env.VITE_INTERVIEW_AGENT_WS_URL || 'ws://localhost:8085'
+  },
+  {
+    id: 'playground',
+    name: 'Playground 实验',
+    title: 'Playground 实验',
+    desc: 'SpringAIAlibaba-playground',
+    wsUrl: import.meta.env.VITE_PLAYGROUND_WS_URL || 'ws://localhost:8087'
+  }
 ]
+
+const activeAgent = computed(() => agents.find(a => a.id === selected.value) || null)
 
 function select(ag) {
   selected.value = ag.id
