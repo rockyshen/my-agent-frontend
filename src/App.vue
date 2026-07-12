@@ -38,9 +38,14 @@
 
     <div style="flex:1;height:100%;overflow:hidden;display:flex;flex-direction:column;">
       <InterviewAgent
-        v-if="activeAgent"
+        v-if="activeAgent?.component === 'interview'"
         :key="activeAgent.id"
         :title="activeAgent.title"
+        :default-ws-url="activeAgent.wsUrl"
+      />
+      <PlaygroundPanel
+        v-else-if="activeAgent?.component === 'playground'"
+        :key="activeAgent.id"
         :default-ws-url="activeAgent.wsUrl"
       />
       <div v-else style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;">
@@ -56,6 +61,7 @@
 <script setup>
 import { ref, computed } from 'vue'
 import InterviewAgent from './components/InterviewAgent.vue'
+import PlaygroundPanel from './components/PlaygroundPanel.vue'
 
 const selected = ref(null)
 
@@ -65,13 +71,15 @@ const agents = [
     name: '面试模拟 Agent',
     title: 'AI 面试官',
     desc: '稳定版 · interview-agent',
+    component: 'interview',
     wsUrl: import.meta.env.VITE_INTERVIEW_AGENT_WS_URL || 'ws://localhost:8085'
   },
   {
     id: 'playground',
     name: 'Playground 实验',
-    title: 'Playground 实验',
-    desc: 'SpringAIAlibaba-playground',
+    title: 'SpringAI Playground',
+    desc: 'Graph 编排 · RAG · 事件调试',
+    component: 'playground',
     wsUrl: import.meta.env.VITE_PLAYGROUND_WS_URL || 'ws://localhost:8087'
   }
 ]

@@ -9,9 +9,9 @@ npm install
 npm run dev
 ```
 
-侧栏两个 Agent：
-- **面试模拟 Agent** → 稳定版 `interview-agent`（生产 `ws://118.25.46.207:6085`）
-- **Playground 实验** → `SpringAIAlibaba-playground`（生产 `ws://118.25.46.207:6087`）
+侧栏两个 Agent，界面与交互独立：
+- **面试模拟 Agent** — 面向用户的沉浸式面试体验（interview-agent · 6085）
+- **Playground 实验** — 开发者实验台：Graph 流水线、题库上传、WebSocket 事件日志（SpringAIAlibaba-playground · 6087）
 
 环境变量见 `.env.development` / `.env.production`，也可在界面高级设置里修改。
 
