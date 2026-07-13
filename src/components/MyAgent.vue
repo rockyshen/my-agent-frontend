@@ -12,8 +12,8 @@
     <!-- Setup -->
     <div v-if="stage === 'setup'" style="flex:1;overflow-y:auto;">
       <div style="max-width:640px;margin:0 auto;padding:72px 24px 100px;">
-        <h1 style="font-size:52px;line-height:1.08;font-weight:600;letter-spacing:-0.02em;text-align:center;margin:0;">和 MyAgent<br />聊聊天气</h1>
-        <p style="font-size:18px;color:#6e6e73;text-align:center;margin:20px auto 0;max-width:460px;line-height:1.6;">基于 Spring AI Alibaba ReactAgent 的智能助手，可查询天气并记住对话上下文。</p>
+        <h1 style="font-size:52px;line-height:1.08;font-weight:600;letter-spacing:-0.02em;text-align:center;margin:0;">MyAgent<br />极简对话</h1>
+        <p style="font-size:18px;color:#6e6e73;text-align:center;margin:20px auto 0;max-width:460px;line-height:1.6;">SpringAIAlibaba Playground · ReactAgent 天气助手，轻量 WebSocket 对话。</p>
 
         <div style="margin-top:52px;background:#ffffff;border:1px solid rgba(0,0,0,0.08);border-radius:20px;padding:40px;box-shadow:0 20px 40px rgba(0,0,0,0.04);">
           <div style="margin-top:12px;">

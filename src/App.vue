@@ -1,44 +1,54 @@
 <template>
-  <div style="height:100vh;width:100%;display:flex;background:#faf8f4;color:#1d1d1f;font-family:-apple-system,BlinkMacSystemFont,'SF Pro Display','PingFang SC','Helvetica Neue',Arial,sans-serif;overflow:hidden;">
-
-    <div style="flex-shrink:0;width:280px;height:100%;background:#f3efe6;border-right:1px solid rgba(0,0,0,0.08);display:flex;flex-direction:column;">
-      <div style="padding:28px 24px 20px;">
-        <div style="display:flex;align-items:center;gap:10px;">
-          <div style="width:8px;height:8px;border-radius:50%;background:#8a6f45;"></div>
-          <span style="font-size:16px;font-weight:600;letter-spacing:0.01em;">Agent 中心</span>
-        </div>
-        <p style="font-size:13px;color:#6e6e73;margin:10px 0 0;line-height:1.5;">选择一个 Agent，开启专属对话</p>
+  <div class="app-shell">
+    <!-- Desktop sidebar -->
+    <aside class="sidebar desktop-only">
+      <div class="sidebar-head">
+        <div class="brand-dot"></div>
+        <span class="brand-title">Agent 中心</span>
+        <p class="brand-desc">Interview · 记账 · Playground</p>
       </div>
-
-      <div style="flex:1;overflow-y:auto;padding:4px 16px 16px;display:flex;flex-direction:column;gap:6px;">
-        <div
+      <nav class="agent-list">
+        <button
           v-for="ag in agents"
           :key="ag.id"
+          type="button"
+          class="agent-item"
+          :class="{ active: selected === ag.id }"
           @click="select(ag)"
-          :style="{
-            display: 'flex', alignItems: 'center', gap: '12px', padding: '12px',
-            borderRadius: '12px', cursor: 'pointer',
-            background: selected === ag.id ? 'rgba(138,111,69,0.12)' : 'transparent'
-          }"
         >
-          <div :style="{
-            flexShrink: 0, width: '36px', height: '36px', borderRadius: '10px',
-            background: selected === ag.id ? '#8a6f45' : '#e7e0d2',
-            color: selected === ag.id ? '#fff' : '#8a6f45',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            fontSize: '14px', fontWeight: 700
-          }">{{ ag.name.charAt(0) }}</div>
-          <div style="flex:1;min-width:0;">
-            <div :style="{ fontSize: '14px', fontWeight: selected === ag.id ? 700 : 600, color: '#1d1d1f', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }">{{ ag.name }}</div>
-            <div style="font-size:12px;color:#6e6e73;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ ag.desc }}</div>
-          </div>
-        </div>
-      </div>
-    </div>
+          <span class="agent-icon" :class="{ active: selected === ag.id }">{{ ag.short }}</span>
+          <span class="agent-meta">
+            <span class="agent-name">{{ ag.name }}</span>
+            <span class="agent-desc">{{ ag.desc }}</span>
+          </span>
+        </button>
+      </nav>
+    </aside>
 
-    <div style="flex:1;height:100%;overflow:hidden;display:flex;flex-direction:column;">
+    <!-- Mobile bottom tabs -->
+    <nav class="tabbar mobile-only">
+      <button
+        v-for="ag in agents"
+        :key="ag.id"
+        type="button"
+        class="tab-item"
+        :class="{ active: selected === ag.id }"
+        @click="select(ag)"
+      >
+        <span class="tab-icon">{{ ag.short }}</span>
+        <span class="tab-label">{{ ag.tabLabel }}</span>
+      </button>
+    </nav>
+
+    <main class="main-panel">
       <InterviewAgent
         v-if="activeAgent?.component === 'interview'"
+        :key="activeAgent.id"
+        :title="activeAgent.title"
+        :default-ws-url="activeAgent.wsUrl"
+      />
+      <EasyAccountAgent
+        v-else-if="activeAgent?.component === 'easyaccount'"
         :key="activeAgent.id"
         :title="activeAgent.title"
         :default-ws-url="activeAgent.wsUrl"
@@ -49,37 +59,51 @@
         :title="activeAgent.title"
         :default-ws-url="activeAgent.wsUrl"
       />
-      <div v-else style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;">
-        <div style="width:48px;height:48px;border-radius:50%;border:1px solid rgba(0,0,0,0.1);display:flex;align-items:center;justify-content:center;font-size:20px;color:#8a6f45;">◎</div>
-        <span style="font-size:17px;font-weight:600;">选择左侧的 Agent 开始对话</span>
-        <span style="font-size:14px;color:#6e6e73;">每个 Agent 拥有独立的会话与连接</span>
+      <div v-else class="placeholder">
+        <div class="placeholder-icon">◎</div>
+        <span class="placeholder-title">选择一个 Agent</span>
+        <span class="placeholder-sub">Interview · 记账 · Playground</span>
       </div>
-    </div>
-
+    </main>
   </div>
 </template>
 
 <script setup>
 import { ref, computed } from 'vue'
 import InterviewAgent from './components/InterviewAgent.vue'
+import EasyAccountAgent from './components/EasyAccountAgent.vue'
 import MyAgent from './components/MyAgent.vue'
 
-const selected = ref(null)
+const selected = ref('easyaccount')
 
 const agents = [
   {
     id: 'interview',
-    name: '面试模拟 Agent',
+    short: '面',
+    tabLabel: '面试',
+    name: 'Interview Agent',
     title: 'AI 面试官',
-    desc: '稳定版 · interview-agent',
+    desc: 'interview-agent · 8085',
     component: 'interview',
     wsUrl: import.meta.env.VITE_INTERVIEW_AGENT_WS_URL || 'ws://localhost:8085'
   },
   {
+    id: 'easyaccount',
+    short: '账',
+    tabLabel: '记账',
+    name: 'EasyAccount Agent',
+    title: '智能记账助手',
+    desc: 'easyaccount-agent · 8088',
+    component: 'easyaccount',
+    wsUrl: import.meta.env.VITE_EASYACCOUNT_WS_URL || 'ws://localhost:8088'
+  },
+  {
     id: 'playground',
-    name: 'MyAgent',
-    title: 'MyAgent · 天气助手',
-    desc: 'ReactAgent · WebSocket 对话',
+    short: 'P',
+    tabLabel: 'Playground',
+    name: 'SpringAI Playground',
+    title: 'MyAgent · 极简对话',
+    desc: 'ReactAgent · 8087',
     component: 'myagent',
     wsUrl: import.meta.env.VITE_PLAYGROUND_WS_URL || 'ws://localhost:8087'
   }
@@ -91,3 +115,95 @@ function select(ag) {
   selected.value = ag.id
 }
 </script>
+
+<style scoped>
+.app-shell {
+  height: 100vh;
+  width: 100%;
+  display: flex;
+  background: #faf8f4;
+  color: #1d1d1f;
+  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'PingFang SC', sans-serif;
+  overflow: hidden;
+}
+
+.sidebar {
+  flex-shrink: 0;
+  width: 280px;
+  height: 100%;
+  background: #f3efe6;
+  border-right: 1px solid rgba(0, 0, 0, 0.08);
+  display: flex;
+  flex-direction: column;
+}
+
+.sidebar-head { padding: 28px 24px 16px; }
+.brand-dot { width: 8px; height: 8px; border-radius: 50%; background: #8a6f45; display: inline-block; margin-right: 8px; }
+.brand-title { font-size: 16px; font-weight: 600; }
+.brand-desc { font-size: 13px; color: #6e6e73; margin: 10px 0 0; }
+
+.agent-list { flex: 1; overflow-y: auto; padding: 4px 16px 16px; display: flex; flex-direction: column; gap: 6px; }
+.agent-item {
+  display: flex; align-items: center; gap: 12px; padding: 12px; border-radius: 12px;
+  border: none; background: transparent; cursor: pointer; text-align: left; width: 100%;
+}
+.agent-item.active { background: rgba(138, 111, 69, 0.12); }
+.agent-icon {
+  width: 36px; height: 36px; border-radius: 10px; background: #e7e0d2; color: #8a6f45;
+  display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 700; flex-shrink: 0;
+}
+.agent-icon.active { background: #8a6f45; color: #fff; }
+.agent-meta { min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.agent-name { font-size: 14px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.agent-desc { font-size: 12px; color: #6e6e73; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+.main-panel {
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.placeholder {
+  flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px;
+}
+.placeholder-icon {
+  width: 48px; height: 48px; border-radius: 50%; border: 1px solid rgba(0,0,0,0.1);
+  display: flex; align-items: center; justify-content: center; color: #8a6f45; font-size: 20px;
+}
+.placeholder-title { font-size: 17px; font-weight: 600; }
+.placeholder-sub { font-size: 14px; color: #6e6e73; }
+
+.tabbar {
+  order: 2;
+  flex-shrink: 0;
+  display: flex;
+  border-top: 1px solid rgba(60, 60, 67, 0.12);
+  background: rgba(250, 248, 244, 0.96);
+  backdrop-filter: blur(10px);
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+.tab-item {
+  flex: 1; border: none; background: transparent; padding: 8px 4px 6px;
+  display: flex; flex-direction: column; align-items: center; gap: 2px; color: #8e8e93;
+}
+.tab-item.active { color: #007aff; }
+.tab-icon {
+  width: 28px; height: 28px; border-radius: 8px; background: rgba(120,120,128,0.12);
+  display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 700;
+}
+.tab-item.active .tab-icon { background: rgba(0, 122, 255, 0.14); color: #007aff; }
+.tab-label { font-size: 11px; font-weight: 500; }
+
+.mobile-only { display: none; }
+
+@media (max-width: 768px) {
+  .app-shell { flex-direction: column; }
+  .desktop-only { display: none; }
+  .mobile-only { display: flex; }
+  .main-panel { order: 1; flex: 1; min-height: 0; }
+}
+</style>
