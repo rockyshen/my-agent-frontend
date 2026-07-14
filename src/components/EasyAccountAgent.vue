@@ -49,9 +49,9 @@
             id="ea-password"
             v-model="loginPassword"
             type="password"
-            inputmode="numeric"
             autocomplete="current-password"
-            placeholder="数字密码"
+            maxlength="128"
+            placeholder="密码"
             :disabled="loginBusy"
           />
           <button class="ea-primary-btn" type="submit" :disabled="!canLogin">
@@ -158,8 +158,8 @@ let sessionInvalidHandled = false
 
 const canLogin = computed(() => {
   const name = loginName.value.trim()
-  const pwd = loginPassword.value.trim()
-  return !loginBusy.value && !!name && pwd !== '' && Number.isInteger(Number(pwd))
+  const pwd = loginPassword.value
+  return !loginBusy.value && !!name && pwd.length > 0 && pwd.length <= 128
 })
 
 const canSend = computed(() => connected.value && !waitingReply.value && !!inputText.value.trim())
@@ -250,10 +250,9 @@ async function bootstrap() {
 
 async function onLogin() {
   const name = loginName.value.trim()
-  const pwdRaw = loginPassword.value.trim()
-  const password = Number(pwdRaw)
-  if (!name || !Number.isInteger(password)) {
-    authError.value = '请输入用户名，密码须为整数'
+  const password = loginPassword.value
+  if (!name || !password || password.length > 128) {
+    authError.value = '请输入用户名和密码（最长 128）'
     return
   }
   loginBusy.value = true
