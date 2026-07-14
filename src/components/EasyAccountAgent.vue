@@ -2,34 +2,72 @@
   <div class="ea-root">
     <header class="ea-header">
       <div class="ea-header-inner">
-        <span class="ea-dot"></span>
+        <span class="ea-dot" :class="{ offline: stage === 'live' && !connected }"></span>
         <div class="ea-header-text">
           <div class="ea-title">{{ title }}</div>
-          <div v-if="stage === 'live'" class="ea-sub">{{ connected ? '已连接 · 随时记账' : '连接中…' }}</div>
+          <div v-if="stage === 'live'" class="ea-sub">
+            <template v-if="connected">已连接{{ currentUser?.name ? ` · ${currentUser.name}` : '' }}</template>
+            <template v-else>连接中…</template>
+          </div>
+          <div v-else-if="stage === 'bootstrapping'" class="ea-sub">校验登录中…</div>
         </div>
       </div>
-      <button v-if="stage === 'live'" class="ea-text-btn" type="button" @click="restart">结束</button>
+      <button
+        v-if="stage === 'live' || stage === 'connecting'"
+        class="ea-text-btn"
+        type="button"
+        @click="onLogout"
+      >退出</button>
     </header>
 
-    <!-- Setup -->
-    <div v-if="stage === 'setup'" class="ea-setup">
+    <!-- Bootstrapping session -->
+    <div v-if="stage === 'bootstrapping'" class="ea-center">
+      <div class="ea-spinner"></div>
+      <span>正在恢复登录状态…</span>
+    </div>
+
+    <!-- Login -->
+    <div v-else-if="stage === 'login'" class="ea-setup">
       <div class="ea-hero">
         <div class="ea-icon">¥</div>
         <h1>智能记账</h1>
-        <p>查余额、记流水、看报表，用对话完成。</p>
+        <p>登录后查余额、记流水；账本按账号隔离。</p>
       </div>
       <div class="ea-card">
-        <button class="ea-primary-btn" type="button" @click="onStart">开始记账对话</button>
+        <form class="ea-form" @submit.prevent="onLogin">
+          <label for="ea-name">用户名</label>
+          <input
+            id="ea-name"
+            v-model="loginName"
+            type="text"
+            autocomplete="username"
+            placeholder="例如 rocky"
+            :disabled="loginBusy"
+          />
+          <label for="ea-password">密码</label>
+          <input
+            id="ea-password"
+            v-model="loginPassword"
+            type="password"
+            autocomplete="current-password"
+            maxlength="128"
+            placeholder="密码"
+            :disabled="loginBusy"
+          />
+          <button class="ea-primary-btn" type="submit" :disabled="!canLogin">
+            {{ loginBusy ? '登录中…' : '登录' }}
+          </button>
+        </form>
         <button class="ea-link-btn" type="button" @click="showAdvanced = !showAdvanced">
           {{ showAdvanced ? '收起设置' : '连接设置' }}
         </button>
         <div v-if="showAdvanced" class="ea-advanced">
-          <label>用户 ID</label>
-          <input v-model="userId" />
+          <label>HTTP Base</label>
+          <input v-model="httpBase" />
           <label>WebSocket</label>
           <input v-model="wsUrl" />
         </div>
-        <div v-if="connectError" class="ea-error">{{ connectError }}</div>
+        <div v-if="authError" class="ea-error">{{ authError }}</div>
       </div>
     </div>
 
@@ -59,8 +97,8 @@
         <textarea
           v-model="inputText"
           rows="1"
-          :placeholder="waitingReply ? '助手正在回复…' : '说点什么，例如：查一下账户余额'"
-          :disabled="waitingReply"
+          :placeholder="waitingReply ? '助手正在回复…' : '说点什么，例如：列出我的账户'"
+          :disabled="waitingReply || !connected"
           @keydown.enter.exact.prevent="sendChat"
         ></textarea>
         <button type="button" class="ea-send" :disabled="!canSend" @click="sendChat">发送</button>
@@ -70,18 +108,41 @@
 </template>
 
 <script setup>
-import { ref, computed, watch, nextTick, onBeforeUnmount } from 'vue'
+import { ref, computed, watch, nextTick, onMounted, onBeforeUnmount } from 'vue'
+import {
+  getStoredToken,
+  getStoredUser,
+  persistSession,
+  clearSession,
+  resolveHttpBase,
+  login,
+  fetchMe,
+  logout,
+  buildChatWsUrl
+} from '../lib/easyaccountAuth.js'
 
 const props = defineProps({
   title: { type: String, default: '记账助手' },
-  defaultWsUrl: { type: String, default: '' }
+  defaultWsUrl: { type: String, default: '' },
+  defaultHttpUrl: { type: String, default: '' }
 })
 
-const stage = ref('setup')
-const userId = ref('mobile-' + Math.random().toString(36).slice(2, 8))
-const wsUrl = ref(props.defaultWsUrl || import.meta.env.VITE_EASYACCOUNT_WS_URL || 'ws://localhost:8088')
+/** @type {import('vue').Ref<'bootstrapping'|'login'|'connecting'|'live'>} */
+const stage = ref('bootstrapping')
+const wsUrl = ref(props.defaultWsUrl || import.meta.env.VITE_EASYACCOUNT_WS_URL || 'ws://127.0.0.1:8088')
+const httpBase = ref(
+  resolveHttpBase({
+    httpUrl: props.defaultHttpUrl || import.meta.env.VITE_EASYACCOUNT_HTTP_URL,
+    wsUrl: wsUrl.value
+  })
+)
 const showAdvanced = ref(false)
-const connectError = ref('')
+const authError = ref('')
+const loginName = ref('')
+const loginPassword = ref('')
+const loginBusy = ref(false)
+const currentUser = ref(null)
+const token = ref('')
 const connected = ref(false)
 const messages = ref([])
 const inputText = ref('')
@@ -90,6 +151,16 @@ const transcriptRef = ref(null)
 
 let ws = null
 let streamingMsgId = null
+let reconnectTimer = null
+let reconnectAttempts = 0
+let intentionalClose = false
+let sessionInvalidHandled = false
+
+const canLogin = computed(() => {
+  const name = loginName.value.trim()
+  const pwd = loginPassword.value
+  return !loginBusy.value && !!name && pwd.length > 0 && pwd.length <= 128
+})
 
 const canSend = computed(() => connected.value && !waitingReply.value && !!inputText.value.trim())
 
@@ -107,44 +178,180 @@ function updateMessage(id, patch) {
   if (idx >= 0) messages.value[idx] = { ...messages.value[idx], ...patch }
 }
 
-function buildWsUrl() {
-  const base = (wsUrl.value || 'ws://localhost:8088').trim().replace(/\/$/, '')
-  return base + '/ws?userId=' + encodeURIComponent(userId.value || 'mobile-guest')
+function clearReconnect() {
+  if (reconnectTimer) {
+    clearTimeout(reconnectTimer)
+    reconnectTimer = null
+  }
 }
 
-function onStart() {
-  connect()
-}
-
-function connect() {
-  stage.value = 'connecting'
-  connectError.value = ''
+function resetChatState() {
+  messages.value = []
+  authError.value = ''
   connected.value = false
+  waitingReply.value = false
+  inputText.value = ''
+  streamingMsgId = null
+}
+
+function closeWs() {
+  intentionalClose = true
+  clearReconnect()
+  if (ws) {
+    try { ws.close() } catch { /* ignore */ }
+    ws = null
+  }
+}
+
+async function forceToLogin(message) {
+  if (sessionInvalidHandled) return
+  sessionInvalidHandled = true
+  clearReconnect()
+  closeWs()
+  clearSession()
+  token.value = ''
+  currentUser.value = null
+  resetChatState()
+  stage.value = 'login'
+  authError.value = message || '登录已失效，请重新登录'
+  sessionInvalidHandled = false
+}
+
+async function bootstrap() {
+  stage.value = 'bootstrapping'
+  authError.value = ''
+  const stored = getStoredToken()
+  if (!stored) {
+    stage.value = 'login'
+    currentUser.value = null
+    return
+  }
+  token.value = stored
+  currentUser.value = getStoredUser()
+  try {
+    const me = await fetchMe({ httpBase: httpBase.value, token: stored })
+    currentUser.value = me
+    persistSession({ token: stored, user: me })
+    connectWs()
+  } catch (e) {
+    if (e.status === 401) {
+      clearSession()
+      token.value = ''
+      currentUser.value = null
+      stage.value = 'login'
+      authError.value = e.message || '未登录或会话已失效'
+      return
+    }
+    // network error: still allow login page; keep token so retry possible
+    stage.value = 'login'
+    authError.value = e.message || '无法校验登录，请检查服务地址'
+  }
+}
+
+async function onLogin() {
+  const name = loginName.value.trim()
+  const password = loginPassword.value
+  if (!name || !password || password.length > 128) {
+    authError.value = '请输入用户名和密码（最长 128）'
+    return
+  }
+  loginBusy.value = true
+  authError.value = ''
+  try {
+    const data = await login({ httpBase: httpBase.value, name, password })
+    persistSession({ token: data.token, user: data.user })
+    token.value = data.token
+    currentUser.value = data.user || { name }
+    loginPassword.value = ''
+    resetChatState()
+    connectWs()
+  } catch (e) {
+    authError.value = e.message || '登录失败'
+  } finally {
+    loginBusy.value = false
+  }
+}
+
+function connectWs() {
+  if (!token.value) {
+    forceToLogin('请先登录')
+    return
+  }
+  clearReconnect()
+  intentionalClose = false
+  if (stage.value !== 'live') stage.value = 'connecting'
+  connected.value = false
+
   let socket
   try {
-    socket = new WebSocket(buildWsUrl())
-  } catch (e) {
-    stage.value = 'setup'
-    connectError.value = '无法创建连接，请检查地址'
+    socket = new WebSocket(buildChatWsUrl(wsUrl.value, token.value))
+  } catch {
+    stage.value = 'login'
+    authError.value = '无法创建连接，请检查地址'
     return
   }
   ws = socket
+
   socket.onmessage = (ev) => {
     let msg
-    try { msg = JSON.parse(ev.data) } catch (e) { return }
+    try { msg = JSON.parse(ev.data) } catch { return }
     handleServerMessage(msg)
   }
+
   socket.onerror = () => {
-    connectError.value = '连接失败，请确认 easyaccount-agent 已启动'
+    // browsers hide handshake status; onclose + /me will classify auth vs network
   }
-  socket.onclose = () => {
+
+  socket.onclose = async () => {
     connected.value = false
-    if (stage.value === 'connecting') {
-      stage.value = 'setup'
-      connectError.value = '连接已断开，请检查服务与网络'
-    } else if (stage.value === 'live') {
-      pushMessage({ kind: 'system', text: '连接已断开' })
+    ws = null
+    if (intentionalClose) {
+      intentionalClose = false
+      return
     }
+
+    if (stage.value === 'connecting') {
+      const stillValid = await checkSessionStillValid()
+      if (!stillValid) {
+        await forceToLogin('未登录或会话已失效')
+        return
+      }
+      reconnectAttempts += 1
+      if (reconnectAttempts >= 3) {
+        stage.value = 'login'
+        authError.value = '连接失败，请确认 easyaccount-agent 已启动'
+        reconnectAttempts = 0
+        return
+      }
+      reconnectTimer = setTimeout(() => connectWs(), 800 * reconnectAttempts)
+      return
+    }
+
+    if (stage.value === 'live') {
+      pushMessage({ kind: 'system', text: '连接已断开，正在重连…' })
+      const stillValid = await checkSessionStillValid()
+      if (!stillValid) {
+        await forceToLogin('会话已失效（可能被其他设备登录踢下线）')
+        return
+      }
+      reconnectAttempts += 1
+      const delay = Math.min(8000, 600 * reconnectAttempts)
+      reconnectTimer = setTimeout(() => connectWs(), delay)
+    }
+  }
+}
+
+async function checkSessionStillValid() {
+  if (!token.value) return false
+  try {
+    const me = await fetchMe({ httpBase: httpBase.value, token: token.value })
+    currentUser.value = me
+    persistSession({ token: token.value, user: me })
+    return true
+  } catch (e) {
+    if (e.status === 401) return false
+    // network blip: treat as still valid so WS can retry
+    return true
   }
 }
 
@@ -152,6 +359,7 @@ function handleServerMessage(msg) {
   if (msg.type === 'connected') {
     connected.value = true
     stage.value = 'live'
+    reconnectAttempts = 0
     pushMessage({ kind: 'system', text: msg.content || '记账助手已连接' })
   } else if (msg.type === 'message_delta') {
     if (streamingMsgId === null) {
@@ -184,7 +392,7 @@ function handleServerMessage(msg) {
 
 function sendChat() {
   const text = inputText.value.trim()
-  if (!text || !connected.value || waitingReply.value) return
+  if (!text || !connected.value || waitingReply.value || !ws) return
   ws.send(JSON.stringify({ type: 'chat', content: text }))
   pushMessage({ kind: 'user', text })
   inputText.value = ''
@@ -192,19 +400,26 @@ function sendChat() {
   streamingMsgId = null
 }
 
-function restart() {
-  if (ws) { try { ws.close() } catch (e) {} ws = null }
-  stage.value = 'setup'
-  messages.value = []
-  connectError.value = ''
-  connected.value = false
-  waitingReply.value = false
-  inputText.value = ''
-  streamingMsgId = null
+async function onLogout() {
+  const t = token.value
+  closeWs()
+  await logout({ httpBase: httpBase.value, token: t })
+  clearSession()
+  token.value = ''
+  currentUser.value = null
+  resetChatState()
+  stage.value = 'login'
+  authError.value = ''
 }
 
+onMounted(() => {
+  bootstrap()
+})
+
 onBeforeUnmount(() => {
-  if (ws) { try { ws.close() } catch (e) {} }
+  intentionalClose = true
+  clearReconnect()
+  if (ws) { try { ws.close() } catch { /* ignore */ } }
 })
 </script>
 
@@ -233,6 +448,7 @@ onBeforeUnmount(() => {
 
 .ea-header-inner { display: flex; align-items: center; gap: 10px; min-width: 0; }
 .ea-dot { width: 8px; height: 8px; border-radius: 50%; background: #34c759; flex-shrink: 0; }
+.ea-dot.offline { background: #ff9f0a; }
 .ea-title { font-size: 17px; font-weight: 600; line-height: 1.2; }
 .ea-sub { font-size: 12px; color: #8e8e93; margin-top: 2px; }
 .ea-text-btn {
@@ -261,10 +477,18 @@ onBeforeUnmount(() => {
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.06);
 }
 
+.ea-form { display: flex; flex-direction: column; gap: 8px; }
+.ea-form label { font-size: 12px; color: #8e8e93; }
+.ea-form input {
+  width: 100%; box-sizing: border-box; border: 1px solid rgba(60,60,67,0.18);
+  border-radius: 10px; padding: 12px 14px; font-size: 16px; background: #f9f9fb; margin-bottom: 6px;
+}
+
 .ea-primary-btn {
-  width: 100%; border: none; border-radius: 14px; padding: 15px;
+  width: 100%; border: none; border-radius: 14px; padding: 15px; margin-top: 8px;
   background: #007aff; color: #fff; font-size: 17px; font-weight: 600;
 }
+.ea-primary-btn:disabled { opacity: 0.45; }
 
 .ea-link-btn {
   width: 100%; margin-top: 10px; border: none; background: transparent;
