@@ -26,38 +26,76 @@
       <span>正在恢复登录状态…</span>
     </div>
 
-    <!-- Login -->
+    <!-- Login / Register -->
     <div v-else-if="stage === 'login'" class="ea-setup">
       <div class="ea-hero">
         <div class="ea-icon">¥</div>
         <h1>智能记账</h1>
-        <p>登录后查余额、记流水；账本按账号隔离。</p>
+        <p>{{ authMode === 'register' ? '注册账号后即可记账，账本按用户隔离。' : '登录后查余额、记流水；账本按账号隔离。' }}</p>
       </div>
       <div class="ea-card">
-        <form class="ea-form" @submit.prevent="onLogin">
+        <div class="ea-tabs" role="tablist">
+          <button
+            type="button"
+            role="tab"
+            class="ea-tab"
+            :class="{ active: authMode === 'login' }"
+            :aria-selected="authMode === 'login'"
+            :disabled="loginBusy"
+            @click="switchAuthMode('login')"
+          >登录</button>
+          <button
+            type="button"
+            role="tab"
+            class="ea-tab"
+            :class="{ active: authMode === 'register' }"
+            :aria-selected="authMode === 'register'"
+            :disabled="loginBusy"
+            @click="switchAuthMode('register')"
+          >注册</button>
+        </div>
+        <form class="ea-form" @submit.prevent="onAuthSubmit">
           <label for="ea-name">用户名</label>
           <input
             id="ea-name"
             v-model="loginName"
             type="text"
             autocomplete="username"
+            maxlength="50"
             placeholder="例如 rocky"
             :disabled="loginBusy"
           />
           <label for="ea-password">密码</label>
-          <input
-            id="ea-password"
-            v-model="loginPassword"
-            type="password"
-            autocomplete="current-password"
-            maxlength="128"
-            placeholder="密码"
-            :disabled="loginBusy"
-          />
-          <button class="ea-primary-btn" type="submit" :disabled="!canLogin">
-            {{ loginBusy ? '登录中…' : '登录' }}
+          <div class="ea-password-row">
+            <input
+              id="ea-password"
+              v-model="loginPassword"
+              :type="showPassword ? 'text' : 'password'"
+              :autocomplete="authMode === 'register' ? 'new-password' : 'current-password'"
+              maxlength="128"
+              placeholder="支持英文、数字与符号"
+              :disabled="loginBusy"
+            />
+            <button
+              class="ea-eye-btn"
+              type="button"
+              :disabled="loginBusy"
+              @click="showPassword = !showPassword"
+            >{{ showPassword ? '隐藏' : '显示' }}</button>
+          </div>
+          <button class="ea-primary-btn" type="submit" :disabled="!canSubmitAuth">
+            <template v-if="loginBusy">{{ authMode === 'register' ? '注册中…' : '登录中…' }}</template>
+            <template v-else>{{ authMode === 'register' ? '注册并进入' : '登录' }}</template>
           </button>
         </form>
+        <button
+          class="ea-link-btn"
+          type="button"
+          :disabled="loginBusy"
+          @click="switchAuthMode(authMode === 'register' ? 'login' : 'register')"
+        >
+          {{ authMode === 'register' ? '已有账号？去登录' : '没有账号？去注册' }}
+        </button>
         <button class="ea-link-btn" type="button" @click="showAdvanced = !showAdvanced">
           {{ showAdvanced ? '收起设置' : '连接设置' }}
         </button>
@@ -116,6 +154,7 @@ import {
   clearSession,
   resolveHttpBase,
   login,
+  register,
   fetchMe,
   logout,
   buildChatWsUrl
@@ -137,9 +176,11 @@ const httpBase = ref(
   })
 )
 const showAdvanced = ref(false)
+const authMode = ref('login') // 'login' | 'register'
 const authError = ref('')
 const loginName = ref('')
 const loginPassword = ref('')
+const showPassword = ref(false)
 const loginBusy = ref(false)
 const currentUser = ref(null)
 const token = ref('')
@@ -156,10 +197,16 @@ let reconnectAttempts = 0
 let intentionalClose = false
 let sessionInvalidHandled = false
 
-const canLogin = computed(() => {
+const canSubmitAuth = computed(() => {
   const name = loginName.value.trim()
   const pwd = loginPassword.value
-  return !loginBusy.value && !!name && pwd.length > 0 && pwd.length <= 128
+  return (
+    !loginBusy.value &&
+    name.length > 0 &&
+    name.length <= 50 &&
+    pwd.length > 0 &&
+    pwd.length <= 128
+  )
 })
 
 const canSend = computed(() => connected.value && !waitingReply.value && !!inputText.value.trim())
@@ -168,6 +215,21 @@ watch(messages, async () => {
   await nextTick()
   if (transcriptRef.value) transcriptRef.value.scrollTop = transcriptRef.value.scrollHeight
 }, { deep: true })
+
+function switchAuthMode(mode) {
+  authMode.value = mode
+  authError.value = ''
+}
+
+function applyAuthSuccess(data, name) {
+  persistSession({ token: data.token, user: data.user })
+  token.value = data.token
+  currentUser.value = data.user || { name }
+  loginPassword.value = ''
+  showPassword.value = false
+  resetChatState()
+  connectWs()
+}
 
 function pushMessage(m) {
   messages.value.push({ id: messages.value.length, ...m })
@@ -248,25 +310,31 @@ async function bootstrap() {
   }
 }
 
-async function onLogin() {
+async function onAuthSubmit() {
   const name = loginName.value.trim()
   const password = loginPassword.value
-  if (!name || !password || password.length > 128) {
-    authError.value = '请输入用户名和密码（最长 128）'
+  if (!name || name.length > 50) {
+    authError.value = '用户名不能为空，最长 50'
+    return
+  }
+  if (!password || password.length > 128) {
+    authError.value = '密码不能为空，最长 128'
     return
   }
   loginBusy.value = true
   authError.value = ''
   try {
-    const data = await login({ httpBase: httpBase.value, name, password })
-    persistSession({ token: data.token, user: data.user })
-    token.value = data.token
-    currentUser.value = data.user || { name }
-    loginPassword.value = ''
-    resetChatState()
-    connectWs()
+    const data =
+      authMode.value === 'register'
+        ? await register({ httpBase: httpBase.value, name, password })
+        : await login({ httpBase: httpBase.value, name, password })
+    applyAuthSuccess(data, name)
   } catch (e) {
-    authError.value = e.message || '登录失败'
+    if (authMode.value === 'register' && e.status === 409) {
+      authError.value = e.message || '用户名已存在'
+    } else {
+      authError.value = e.message || (authMode.value === 'register' ? '注册失败' : '登录失败')
+    }
   } finally {
     loginBusy.value = false
   }
@@ -408,6 +476,7 @@ async function onLogout() {
   token.value = ''
   currentUser.value = null
   resetChatState()
+  authMode.value = 'login'
   stage.value = 'login'
   authError.value = ''
 }
@@ -477,11 +546,30 @@ onBeforeUnmount(() => {
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.06);
 }
 
+.ea-tabs {
+  display: flex; gap: 4px; margin-bottom: 16px; padding: 4px;
+  background: #f2f2f7; border-radius: 12px;
+}
+.ea-tab {
+  flex: 1; border: none; border-radius: 10px; padding: 10px;
+  background: transparent; color: #8e8e93; font-size: 15px; font-weight: 600;
+}
+.ea-tab.active { background: #fff; color: #1c1c1e; box-shadow: 0 1px 4px rgba(0,0,0,0.06); }
+
 .ea-form { display: flex; flex-direction: column; gap: 8px; }
 .ea-form label { font-size: 12px; color: #8e8e93; }
 .ea-form input {
   width: 100%; box-sizing: border-box; border: 1px solid rgba(60,60,67,0.18);
   border-radius: 10px; padding: 12px 14px; font-size: 16px; background: #f9f9fb; margin-bottom: 6px;
+}
+
+.ea-password-row {
+  display: flex; align-items: stretch; gap: 8px; margin-bottom: 6px;
+}
+.ea-password-row input { margin-bottom: 0; flex: 1; min-width: 0; }
+.ea-eye-btn {
+  flex-shrink: 0; border: none; background: transparent; color: #007aff;
+  font-size: 14px; font-weight: 500; padding: 0 6px;
 }
 
 .ea-primary-btn {
