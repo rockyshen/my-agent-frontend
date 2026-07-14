@@ -52,6 +52,7 @@
         :key="activeAgent.id"
         :title="activeAgent.title"
         :default-ws-url="activeAgent.wsUrl"
+        :default-http-url="activeAgent.httpUrl"
       />
       <MyAgent
         v-else-if="activeAgent?.component === 'myagent'"
@@ -93,9 +94,10 @@ const agents = [
     tabLabel: '记账',
     name: 'EasyAccount Agent',
     title: '智能记账助手',
-    desc: 'easyaccount-agent · 8088',
+    desc: 'easyaccount-agent · 登录 + WS',
     component: 'easyaccount',
-    wsUrl: import.meta.env.VITE_EASYACCOUNT_WS_URL || 'ws://localhost:8088'
+    wsUrl: import.meta.env.VITE_EASYACCOUNT_WS_URL || 'ws://127.0.0.1:8088',
+    httpUrl: import.meta.env.VITE_EASYACCOUNT_HTTP_URL || 'http://127.0.0.1:8088'
   },
   {
     id: 'playground',
