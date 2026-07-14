@@ -63,6 +63,23 @@ export async function login({ httpBase, name, password }) {
   return data
 }
 
+export async function register({ httpBase, name, password }) {
+  const res = await fetch(`${httpBase}/api/auth/register`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name, password })
+  })
+  const data = await parseJsonSafe(res)
+  if (!res.ok) {
+    const fallback =
+      res.status === 409 ? '用户名已存在' : res.status === 400 ? '参数不正确' : '注册失败'
+    const err = new Error(data?.message || fallback)
+    err.status = res.status
+    throw err
+  }
+  return data
+}
+
 export async function fetchMe({ httpBase, token }) {
   const res = await fetch(`${httpBase}/api/auth/me`, {
     headers: { Authorization: `Bearer ${token}` }
