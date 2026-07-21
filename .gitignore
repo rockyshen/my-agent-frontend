@@ -4,14 +4,3 @@ dist/
 *.local
 .env.local
 .env.*.local
-
-# Xcode / Swift
-xcuserdata/
-*.xcuserstate
-DerivedData/
-*.hmap
-*.ipa
-*.dSYM.zip
-*.dSYM
-.swiftpm/
-build/

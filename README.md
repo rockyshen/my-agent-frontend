@@ -22,6 +22,6 @@ npm run dev
 - `src/components/InterviewAgent.vue` — 面试模拟 Agent 对话界面，完整实现 JD/简历提交、
   分阶段进度、逐题问答与评分、最终评估报告渲染
 - `src/components/EasyAccountAgent.vue` — 智能记账 Web 端
-- `ios/EasyAccount/` — 智能记账 SwiftUI iOS 客户端（仅记账模块，见该目录 README）
+- iOS 客户端已迁至独立仓库：[easyaccount-swift-ui](https://github.com/rockyshen/easyaccount-swift-ui)
 - 新增 Agent：在 `App.vue` 的 `agents` 列表中新增一项，并新建对应组件，
   在右侧面板按 `selected` 值挂载即可。
